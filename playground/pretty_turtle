@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+from rdflib import Graph, Namespace 
+import sys
+from os.path import splitext
+
+import pickle
+import pandas as pd
+
+
+def read_pickled_prefixes(file_path):
+    try:
+        with open(file_path, 'rb') as file:
+            loaded_data = pickle.load(file)
+        return loaded_data
+    except (FileNotFoundError, IOError):
+        handle_missing_prefixes(file_path)
+
+def handle_missing_prefixes(file_path):
+    print(f"The pickled file '{file_path}' was not found.")
+    print("Generating file")
+    g = Graph()
+    for index, row in build_prefix_list().iterrows():
+      g.bind(row[0], Namespace(row[1]))
+    prefixes = g.namespace_manager
+    with open(file_path, 'wb') as file:
+      pickle.dump(prefixes, file)
+    return prefixes
+
+
+def build_prefix_list():
+    data = [
+        ('persoon', 'https://data.vlaanderen.be/ns/persoon#')
+    ]
+    df = pd.DataFrame.from_records(data)
+    df = pd.concat([df, pd.read_csv('http://prefix.cc/popular/all.file.csv', header=None)])
+    return df.drop_duplicates(subset=1, keep="first")
+
+
+
+# Example usage
+file_path = 'prefixes.pkl'
+
+g = Graph()
+
+g.namespace_manager = read_pickled_prefixes(file_path)
+
+for f in sys.argv[1:]:
+  g.parse(f, format="ttl")
+
+
+#g = g.skolemize()
+g.serialize(format='turtle', destination=f'{splitext(sys.argv[1])[0]}-pretty.ttl')
+

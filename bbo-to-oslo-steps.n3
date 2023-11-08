@@ -1,0 +1,125 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix tai: <https://www.teamingai-project.eu/> .
+@prefix bbo: <https://www.irit.fr/recherches/MELODI/ontologies/BBO#> .
+@prefix bbo-ex: <https://www.teamingai-project.eg/BBOExtension#> .
+@prefix o-steps: <https://fast.ilabt.imec.be/ns/oslo-steps#> .
+@prefix string: <http://www.w3.org/2000/10/swap/string#> .
+@prefix xl: <http://www.w3.org/2008/05/skos-xl#> .
+
+## Open questions:
+#### 1. Naming of states produced by steps. f"{activityName} successful"
+#### 2. Naming of states produced by gateways. f"{gatewayName}: {flowLabel}"
+#### 3. OR Gateway (parallel) produces multiple states? Naming? Or make abstraction of this and treat as one state in Oslo Steps
+#### 4. OSLO produces state: multiple options?
+
+
+# rdfs/owl rules
+# subclass is transitive. 
+{
+  ?grandChild
+    rdfs:subClassOf ?child.
+  ?child
+    rdfs:subClassOf ?parent.
+} => {
+  ?grandChild
+    rdfs:subClassOf ?parent.
+}.
+
+# Incoming is an Acivity 
+{
+  ?activity
+    rdfs:subClassOf
+      bbo:Activity.
+
+  ?requiredState
+    bbo:has_targetRef
+      ?activity;
+    bbo:has_sourceRef
+      ?requiredActivity.
+
+  ?requiredActivity
+    rdfs:subClassOf
+      bbo:Activity;
+    bbo:name
+      ?rsLabel.
+  
+  ( ?rsLabel ": Successfully executed" ) string:concatenation ?comment.
+} => {
+  ?activity
+    o-steps:requiresState ?requiredState ;
+    a o-steps:Step.
+
+  ?requiredState
+    o-steps:hasDescription [ xl:literalForm  ?comment ] ;
+    a o-steps:State.
+}.
+
+# Incoming is a gateway
+## ParallelGateway: A Parallel Gateway is used to synchronize (combine) parallel flows and to create parallel flows. A Parallel Gateway creates parallel paths without checking any conditions; each outgoing Sequence Flow receives a token upon execution of this Gateway. For incoming flows, the Parallel Gateway will wait for all incoming flows before triggering the flow through its outgoing Sequence Flows.
+## ExclusiveGateway: A diverging Exclusive Gateway (Decision) is used to create alternative paths within a Process flow. This is basically the “diversion point in the road” for a Process. For a given instance of the Process, only one of the paths can be taken.
+### DefaultSequenceFlow
+## InclusiveGateway: A diverging Inclusive Gateway (Inclusive Decision) can be used to create alternative but also parallel paths within a Process flow. Unlike the Exclusive Gateway, all condition Expressions are evaluated. The true evaluation of one condition Expression does not exclude the evaluation of other condition Expressions. All Sequence Flows with a true evaluation will be traversed by a token. Since each path is considered to be independent, all combinations of the paths MAY be taken, from zero to all. However, it should be designed so that at least one path is taken.
+## EventBasedGateway: The Event-Based Gateway represents a branching point in the Process where the alternative paths that follow the Gateway are based on Events that occur, rather than the evaluation of Expressions using Process data (as with an Exclusive or Inclusive Gateway). A specific Event, usually the receipt of a Message, determines the path that will be taken. Basically, the decision is made by another Participant, based on data that is not visible to Process, thus, requiring the use of the Event-Based Gateway.
+## ComplexGateway: The Complex Gateway can be used to model complex synchronization behavior. An Expression activationCondition is used to describe the precise behavior. For example, this Expression could specify that tokens on three out of five incoming Sequence Flows are needed to activate the Gateway. What tokens are produced by the Gateway is determined by conditions on the outgoing Sequence Flows as in the split behavior of the Inclusive Gateway. If tokens arrive later on the two remaining Sequence Flows, those tokens cause a reset of the Gateway and new token can be produced on the outgoing Sequence Flows. To determine whether it needs to wait for additional tokens before it can reset, the Gateway uses the synchronization semantics of the Inclusive Gateway.
+## ConvergingGateway: 
+## DivergingGateway: 
+## ExclusiveEventBasedGateway
+## MixedGateway
+## ParallelEventBasedGateway
+## UnspecifiedGateway
+## ParallelGateway
+
+{
+  ?activity
+    rdfs:subClassOf
+      bbo:Activity.
+
+  ?incoming
+    rdfs:subClassOf
+      bbo:FlowElement;
+    bbo:has_targetRef
+      ?activity;
+    bbo:has_sourceRef
+      ?gateway.
+
+  ?gateway
+    rdfs:subClassOf
+      bbo:ExclusiveGateway.
+
+  ?gatewayAnnotationAssociation
+    rdfs:subClassOf bbo-ex:Association ;
+    bbo:has_sourceRef ?gateway;
+    bbo:has_targetRef ?gatewayAnnotation.
+  
+  ?gatewayAnnotation
+    rdfs:comment ?gatewayComment.
+
+  ?incomingAnnotationAssociation
+    rdfs:subClassOf bbo-ex:Association ;
+    bbo:has_sourceRef ?incoming;
+    bbo:has_targetRef ?incomingAnnotation.
+
+  ?incomingAnnotation
+    rdfs:comment ?incomingComment.
+
+  ( ?gatewayComment ": " ?incomingComment ) string:concatenation ?comment
+} => {
+  ?activity
+    o-steps:requiresState ?requiredState.
+
+  ?incoming
+    a o-steps:State;
+    o-steps:hasDescription [ xl:literalForm ?comment ]
+}.
+
+# Add label to activity
+{
+  ?activity
+    rdfs:subClassOf
+      bbo:Activity;
+    bbo:name
+      ?label.
+} => {
+  ?activity
+    o-steps:hasDescription [ xl:literalForm  ?label ].
+}.
