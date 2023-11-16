@@ -13,19 +13,18 @@ def read_pickled_prefixes(file_path):
             loaded_data = pickle.load(file)
         return loaded_data
     except (FileNotFoundError, IOError):
-        handle_missing_prefixes(file_path)
+        return handle_missing_prefixes(file_path)
 
 def handle_missing_prefixes(file_path):
     print(f"The pickled file '{file_path}' was not found.")
     print("Generating file")
     g = Graph()
     for index, row in build_prefix_list().iterrows():
-      g.bind(row[0], Namespace(row[1]))
+        g.bind(row[0], Namespace(row[1]))
     prefixes = g.namespace_manager
     with open(file_path, 'wb') as file:
-      pickle.dump(prefixes, file)
+        pickle.dump(prefixes, file)
     return prefixes
-
 
 def build_prefix_list():
     data = [
@@ -35,19 +34,16 @@ def build_prefix_list():
     df = pd.concat([df, pd.read_csv('http://prefix.cc/popular/all.file.csv', header=None)])
     return df.drop_duplicates(subset=1, keep="first")
 
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python script.py file1.ttl [file2.ttl ...]")
+        sys.exit(1)
 
+    file_path = 'prefixes.pkl'
+    g = Graph()
+    g.namespace_manager = read_pickled_prefixes(file_path)
 
-# Example usage
-file_path = 'prefixes.pkl'
+    for f in sys.argv[1:]:
+        g.parse(f, format="ttl")
 
-g = Graph()
-
-g.namespace_manager = read_pickled_prefixes(file_path)
-
-for f in sys.argv[1:]:
-  g.parse(f, format="ttl")
-
-
-#g = g.skolemize()
-g.serialize(format='turtle', destination=f'{splitext(sys.argv[1])[0]}-pretty.ttl')
-
+    g.serialize(format='longturtle', destination=f'{splitext(sys.argv[1])[0]}-pretty.ttl')
